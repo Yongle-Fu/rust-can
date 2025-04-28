@@ -4,6 +4,7 @@ use rs_can::{CanDevice, CanFrame, CanId};
 use zlgcan_rs::{can::CanMessage, driver::ZDevice};
 use crate::utils::{init_device, CHANNEL};
 
+// cargo run --example device
 fn main() -> anyhow::Result<()> {
     let mut device = init_device()?;
 

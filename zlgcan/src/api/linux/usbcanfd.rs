@@ -88,7 +88,7 @@ impl ZDeviceApi for USBCANFDApi<'_> {
         let (dev_type, dev_idx) = (context.device_type(), context.device_index());
         match unsafe { (self.VCI_OpenDevice)(dev_type as u32, dev_idx, 0) } {
             Self::STATUS_OK => Ok(()),
-            code => Err(CanError::InitializeError(format!("`VCI_OpenDevice` ret: {}", code))),
+            code => Err(CanError::InitializeError(format!("`CANFD VCI_OpenDevice` ret: {}", code))),
         }
     }
 

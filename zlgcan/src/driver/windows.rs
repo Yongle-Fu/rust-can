@@ -7,12 +7,13 @@ use crate::device::{DeriveInfo, Handler, ZCanDeviceType, ZChannelContext, ZDevic
 use crate::lin::{ZLinChlCfg, ZLinFrame, ZLinPublish, ZLinPublishEx, ZLinSubscribe};
 use crate::api::{WinApi, ZCanApi, ZCloudApi, ZDeviceApi, ZLinApi};
 use crate::driver::ZDevice;
+#[allow(unused_imports)]
 use crate::utils;
 
 #[cfg(target_arch = "x86")]
 const LIB_PATH: &str = "windows/x86/";
 #[cfg(target_arch = "x86_64")]
-const LIB_PATH: &str = "windows/x86_64/";
+const LIB_PATH: &str = "windows\\x86_64";
 
 #[derive(Clone)]
 pub struct ZCanDriver {
@@ -27,11 +28,53 @@ pub struct ZCanDriver {
 impl ZDevice for ZCanDriver {
     fn new(libpath: String, dev_type: u32, dev_idx: u32, derive: Option<DeriveInfo>) -> Result<Self, CanError> {
         let mut path = PathBuf::from(&libpath);
+        // 将 LIB_PATH 添加到 libpath，然后检查路径是否存在
         path.push(LIB_PATH);
-        let api =  Arc::new(unsafe {
-            Container::load(&utils::get_libpath(path.clone(), "zlgcan.dll"))
-                .map_err(|e| CanError::InitializeError(e.to_string()))
+        if !path.exists() {
+            return Err(CanError::InitializeError(format!("ZLGCAN - library directory not found: {}", path.display())));
+        }
+        
+        // 构建DLL路径
+        let mut dll_path = path.clone();
+        dll_path.push("zlgcan.dll");
+
+        // 检查kerneldlls目录是否存在
+        let mut kernel_path = path.clone();
+        kernel_path.push("kerneldlls");
+        if kernel_path.exists() {
+            println!("ZLGCAN - kerneldlls directory found at: {}", kernel_path.display());
+            // 将kerneldlls目录添加到环境变量PATH
+            if let Ok(old_path) = std::env::var("PATH") {
+                // println!("ZLGCAN - old PATH: {}", old_path);
+                let new_path = format!("{};{};{}", path.display(), kernel_path.display(), old_path);
+                // std::env::set_var("PATH", new_path);
+                // println!("ZLGCAN - Added kerneldlls to PATH");
+                // 将path目录添加到环境变量PATH
+                // let new_path = format!("{};{}", path.display(), old_path);
+                println!("ZLGCAN - new PATH: {}", new_path);
+                std::env::set_var("PATH", new_path);
+                println!("ZLGCAN - Added library path to PATH");
+            }
+        } else {
+            println!("ZLGCAN - kerneldlls directory not found at: {}", kernel_path.display());
+        }
+        
+        println!("ZLGCAN - trying to load DLL: {}", dll_path.display());
+        
+        if !dll_path.exists() {
+            return Err(CanError::InitializeError(format!("ZLGCAN - dll file not found: {}", dll_path.display())));
+        }
+        
+        // 添加该目录到系统环境路径，以便加载依赖DLL
+        // 设置当前工作目录为DLL所在目录可以帮助系统找到相关依赖
+        std::env::set_current_dir(&path)
+            .map_err(|e| CanError::InitializeError(format!("Failed to set working directory: {}", e)))?;
+        
+        let api = Arc::new(unsafe {
+            Container::load(&dll_path)
+                .map_err(|e| CanError::InitializeError(format!("Could not load DLL: {}", e)))
         }?);
+        
         let dev_type = ZCanDeviceType::try_from(dev_type)?;
         Ok(Self { libpath, handler: Default::default(), api, dev_type, dev_idx, derive })
     }

@@ -16,6 +16,7 @@ pub fn c_str_to_string(src: *const c_char) -> Result<String, CanError> {
     }
 }
 
+#[allow(dead_code)]
 #[inline]
 pub(crate) fn get_libpath(mut path: PathBuf, libname: &str) -> PathBuf {
     path.push(&libname);
